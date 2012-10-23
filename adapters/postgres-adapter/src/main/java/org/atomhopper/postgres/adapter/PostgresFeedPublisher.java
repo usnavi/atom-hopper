@@ -3,8 +3,13 @@ package org.atomhopper.postgres.adapter;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.abdera.i18n.text.UrlEncoding.decode;
+
+import com.yammer.metrics.Metrics;
+import com.yammer.metrics.core.*;
+import com.yammer.metrics.core.Timer;
 import org.apache.abdera.model.Entry;
 import org.apache.commons.lang.StringUtils;
 import org.atomhopper.adapter.FeedPublisher;
@@ -57,6 +62,9 @@ public class PostgresFeedPublisher implements FeedPublisher {
 
     @Override
     public AdapterResponse<Entry> postEntry(PostEntryRequest postEntryRequest) {
+        final Timer timer = Metrics.newTimer(getClass(), "post-entry", TimeUnit.MILLISECONDS,  TimeUnit.SECONDS);
+        final TimerContext context = timer.time();
+
         final Entry abderaParsedEntry = postEntryRequest.getEntry();
         final PersistedEntry persistedEntry = new PersistedEntry();
         final String insertSQL = "INSERT INTO entries (entryid, creationdate, datelastupdated, entrybody, feed, categories) VALUES (?, ?, ?, ?, ?, ?)";
@@ -98,11 +106,15 @@ public class PostgresFeedPublisher implements FeedPublisher {
 
         abderaParsedEntry.setUpdated(persistedEntry.getDateLastUpdated());
 
+        final Timer dbtimer = Metrics.newTimer(getClass(), "db-post-entry", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+        final TimerContext dbcontext = dbtimer.time();
+
         jdbcTemplate.update(insertSQL, new Object[]{
             persistedEntry.getEntryId(), persistedEntry.getCreationDate(), persistedEntry.getDateLastUpdated(),
             persistedEntry.getEntryBody(), persistedEntry.getFeed(), new PostgreSQLTextArray(persistedEntry.getCategories())
         });
-
+        dbcontext.stop();
+        context.stop();
         return ResponseBuilder.created(abderaParsedEntry);
     }
 

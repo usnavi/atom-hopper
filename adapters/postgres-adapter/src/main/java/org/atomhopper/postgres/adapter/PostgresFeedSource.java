@@ -1,5 +1,8 @@
 package org.atomhopper.postgres.adapter;
 
+import com.yammer.metrics.Metrics;
+import com.yammer.metrics.core.TimerContext;
+import com.yammer.metrics.core.Timer;
 import org.apache.abdera.Abdera;
 import org.apache.abdera.model.Document;
 import org.apache.abdera.model.Entry;
@@ -25,6 +28,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.io.StringReader;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.abdera.i18n.text.UrlEncoding.decode;
 import static org.apache.abdera.i18n.text.UrlEncoding.encode;
@@ -96,6 +100,8 @@ public class PostgresFeedSource implements FeedSource {
 
     private Feed hydrateFeed(Abdera abdera, List<PersistedEntry> persistedEntries,
                              GetFeedRequest getFeedRequest, final int pageSize) {
+        final Timer timer = Metrics.newTimer(getClass(), "hydrate-feed", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+        final TimerContext context = timer.time();
 
         final Feed hyrdatedFeed = abdera.newFeed();
         final String uuidUriScheme = "urn:uuid:";
@@ -139,11 +145,14 @@ public class PostgresFeedSource implements FeedSource {
         for (PersistedEntry persistedFeedEntry : persistedEntries) {
             hyrdatedFeed.addEntry(hydrateEntry(persistedFeedEntry, abdera));
         }
+        context.stop();
 
         return hyrdatedFeed;
     }
 
     private Entry hydrateEntry(PersistedEntry persistedEntry, Abdera abderaReference) {
+        final Timer timer = Metrics.newTimer(getClass(), "hydrate-entry", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+        final TimerContext context = timer.time();
 
         final Document<Entry> hydratedEntryDocument = abderaReference.getParser().parse(
                 new StringReader(persistedEntry.getEntryBody()));
@@ -154,12 +163,15 @@ public class PostgresFeedSource implements FeedSource {
             entry = hydratedEntryDocument.getRoot();
             entry.setUpdated(persistedEntry.getDateLastUpdated());
         }
+        context.stop();
 
         return entry;
     }
 
     @Override
     public AdapterResponse<Entry> getEntry(GetEntryRequest getEntryRequest) {
+        final Timer timer = Metrics.newTimer(getClass(), "get-entry", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+        final TimerContext context = timer.time();
 
         final PersistedEntry entry = getEntry(getEntryRequest.getEntryId(), getEntryRequest.getFeedName());
 
@@ -169,11 +181,14 @@ public class PostgresFeedSource implements FeedSource {
             response = ResponseBuilder.found(hydrateEntry(entry, getEntryRequest.getAbdera()));
         }
 
+        context.stop();
+
         return response;
     }
 
     @Override
     public AdapterResponse<Feed> getFeed(GetFeedRequest getFeedRequest) {
+
         AdapterResponse<Feed> response;
 
         int pageSize = PAGE_SIZE;
@@ -190,12 +205,14 @@ public class PostgresFeedSource implements FeedSource {
         } else {
             response = getFeedHead(getFeedRequest, pageSize);
         }
-
         return response;
     }
 
     private AdapterResponse<Feed> getFeedHead(GetFeedRequest getFeedRequest,
                                               int pageSize) {
+        final Timer timer = Metrics.newTimer(getClass(), "get-feed-head", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+        final TimerContext context = timer.time();
+
         final Abdera abdera = getFeedRequest.getAbdera();
 
         final String searchString = getFeedRequest.getSearchQuery() != null ? getFeedRequest.getSearchQuery() : "";
@@ -228,10 +245,13 @@ public class PostgresFeedSource implements FeedSource {
                     .setRel(Link.REL_LAST);
         }
 
+        context.stop();
         return ResponseBuilder.found(hyrdatedFeed);
     }
 
     private AdapterResponse<Feed> getFeedPage(GetFeedRequest getFeedRequest, String marker, int pageSize) {
+        final Timer timer = Metrics.newTimer(getClass(), "get-feed-page", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+        final TimerContext context = timer.time();
 
         AdapterResponse<Feed> response;
         PageDirection pageDirection;
@@ -260,6 +280,7 @@ public class PostgresFeedSource implements FeedSource {
                     "No entry with specified marker found");
         }
 
+        context.stop();
         return response;
     }
 
@@ -281,12 +302,17 @@ public class PostgresFeedSource implements FeedSource {
                 final String forwardWithCatsSQL = "SELECT * FROM entries WHERE feed = ? AND datelastupdated > ? AND categories @> ?::varchar[] ORDER BY datelastupdated ASC LIMIT ?";
 
                 if (searchString.length() > 0) {
+                    final Timer timer = Metrics.newTimer(getClass(), "db-get-feed-forward-with-cats", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+                    final TimerContext context = timer.time();
                     feedPage = jdbcTemplate
                             .query(forwardWithCatsSQL,
                                    new Object[]{feedName, markerEntry.getCreationDate(),
                                            CategoryStringGenerator.getPostgresCategoryString(searchString), pageSize},
                                    new EntryRowMapper());
+                    context.stop();
                 } else {
+                    final Timer timer = Metrics.newTimer(getClass(), "db-get-feed-forward", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+                    final TimerContext context = timer.time();
                     feedPage = jdbcTemplate
                             .query(forwardSQL,
                                    new Object[]{feedName, markerEntry.getCreationDate(), pageSize},
@@ -301,44 +327,61 @@ public class PostgresFeedSource implements FeedSource {
                 final String backwardWithCatsSQL = "SELECT * FROM entries WHERE feed = ? AND datelastupdated <= ? AND categories @> ?::varchar[] ORDER BY datelastupdated DESC LIMIT ?";
 
                 if (searchString.length() > 0) {
+                    final Timer timer = Metrics.newTimer(getClass(), "db-get-feed-backward-with-cats", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+                    final TimerContext context = timer.time();
                     feedPage = jdbcTemplate
                             .query(backwardWithCatsSQL,
                                    new Object[]{feedName, markerEntry.getCreationDate(),
                                            CategoryStringGenerator.getPostgresCategoryString(searchString), pageSize},
                                    new EntryRowMapper());
+                    context.stop();
                 } else {
+                    final Timer timer = Metrics.newTimer(getClass(), "db-get-feed-backward", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+                    final TimerContext context = timer.time();
                     feedPage = jdbcTemplate
                             .query(backwardSQL,
                                    new Object[]{feedName, markerEntry.getCreationDate(), pageSize},
                                    new EntryRowMapper());
+                    context.stop();
                 }
                 break;
         }
-
         return feedPage;
     }
 
     private PersistedEntry getEntry(final String entryId, final String feedName) {
+        final Timer timer = Metrics.newTimer(getClass(), "db-get-entry", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+        final TimerContext context = timer.time();
+
         final String entrySQL = "SELECT * FROM entries WHERE feed = ? AND entryid = ?";
         List<PersistedEntry> entry = jdbcTemplate
                 .query(entrySQL, new Object[]{feedName, entryId}, new EntryRowMapper());
+        context.stop();
         return entry.size() > 0 ? entry.get(0) : null;
     }
 
     private Integer getFeedCount(final String feedName, final String searchString) {
+
         final String totalFeedEntryCountSQL = "SELECT COUNT(*) FROM entries WHERE feed = ?";
         final String totalFeedEntryCountWithCatsSQL = "SELECT COUNT(*) FROM entries WHERE feed = ? AND categories @> ?::varchar[]";
 
         int totalFeedEntryCount;
 
         if (searchString.length() > 0) {
+            final Timer timer = Metrics.newTimer(getClass(), "db-get-feed-count-with-cats", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+            final TimerContext context = timer.time();
             totalFeedEntryCount = jdbcTemplate
                     .queryForInt(totalFeedEntryCountWithCatsSQL, feedName,
                                  CategoryStringGenerator.getPostgresCategoryString(searchString));
+            context.stop();
         } else {
+            final Timer timer = Metrics.newTimer(getClass(), "db-get-feed-count", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+            final TimerContext context = timer.time();
             totalFeedEntryCount = jdbcTemplate
                     .queryForInt(totalFeedEntryCountSQL, feedName);
+            context.stop();
         }
+
         return totalFeedEntryCount;
     }
 
@@ -349,15 +392,22 @@ public class PostgresFeedSource implements FeedSource {
 
         List<PersistedEntry> persistedEntries;
         if (searchString.length() > 0) {
+            final Timer timer = Metrics.newTimer(getClass(), "db-get-feed-head-with-cats", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+            final TimerContext context = timer.time();
             persistedEntries = jdbcTemplate
                     .query(getFeedHeadWithCatsSQL, new Object[]{feedName,
                             CategoryStringGenerator.getPostgresCategoryString(searchString), pageSize},
                            new EntryRowMapper());
+            context.stop();
         } else {
+            final Timer timer = Metrics.newTimer(getClass(), "db-get-feed-head", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+            final TimerContext context = timer.time();
             persistedEntries = jdbcTemplate
                     .query(getFeedHeadSQL, new Object[]{feedName, pageSize},
                            new EntryRowMapper());
+            context.stop();
         }
+
         return persistedEntries;
     }
 
@@ -368,11 +418,16 @@ public class PostgresFeedSource implements FeedSource {
 
         List<PersistedEntry> lastPersistedEntries;
         if (searchString.length() > 0) {
+            final Timer timer = Metrics.newTimer(getClass(), "db-get-last-page-with-cats", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+            final TimerContext context = timer.time();
             lastPersistedEntries = jdbcTemplate
                     .query(lastLinkQueryWithCatsSQL, new Object[]{feedName,
                             CategoryStringGenerator.getPostgresCategoryString(searchString), pageSize},
                            new EntryRowMapper());
+            context.stop();
         } else {
+            final Timer timer = Metrics.newTimer(getClass(), "db-get-last-page", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+            final TimerContext context = timer.time();
             lastPersistedEntries = jdbcTemplate
                     .query(lastLinkQuerySQL, new Object[]{feedName, pageSize},
                            new EntryRowMapper());
@@ -386,16 +441,20 @@ public class PostgresFeedSource implements FeedSource {
 
         List<PersistedEntry> nextEntry;
         if (searchString.length() > 0) {
-
+            final Timer timer = Metrics.newTimer(getClass(), "db-get-next-marker-with-cats", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+            final TimerContext context = timer.time();
             nextEntry =  jdbcTemplate
                     .query(nextLinkWithCatsSQL, new Object[]{feedName,
                             persistedEntry.getDateLastUpdated(),
                             CategoryStringGenerator.getPostgresCategoryString(searchString)}, new EntryRowMapper());
+            context.stop();
         } else {
-
+            final Timer timer = Metrics.newTimer(getClass(), "db-get-next-marker", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
+            final TimerContext context = timer.time();
             nextEntry =  jdbcTemplate
                     .query(nextLinkSQL, new Object[]{feedName,
                             persistedEntry.getDateLastUpdated()}, new EntryRowMapper());
+            context.stop();
         }
 
         return nextEntry.size() > 0 ? nextEntry.get(0) : null;
