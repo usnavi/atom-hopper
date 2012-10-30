@@ -1,12 +1,6 @@
 package org.atomhopper.postgres.adapter;
 
-import java.io.IOException;
-import java.io.StringWriter;
-import java.util.*;
 import java.util.concurrent.TimeUnit;
-
-import static org.apache.abdera.i18n.text.UrlEncoding.decode;
-
 import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.*;
 import com.yammer.metrics.core.Timer;
@@ -29,6 +23,12 @@ import org.atomhopper.util.uri.template.URITemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.io.IOException;
+import java.io.StringWriter;
+import java.util.*;
+
+import static org.apache.abdera.i18n.text.UrlEncoding.decode;
 
 
 public class PostgresFeedPublisher implements FeedPublisher {
@@ -107,6 +107,7 @@ public class PostgresFeedPublisher implements FeedPublisher {
         persistedEntry.setEntryBody(entryToString(abderaParsedEntry));
 
         abderaParsedEntry.setUpdated(persistedEntry.getDateLastUpdated());
+        abderaParsedEntry.setPublished(persistedEntry.getCreationDate());
 
         final Timer dbtimer = Metrics.newTimer(getClass(), "db-post-entry", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
         final TimerContext dbcontext = dbtimer.time();
