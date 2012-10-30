@@ -213,7 +213,7 @@ public class PostgresFeedSource implements FeedSource {
                                               int pageSize) {
 
         String timerString = "get-feed-head-%s";
-        if (getFeedRequest.getSearchQuery() != null) {
+        if (getFeedRequest.getSearchQuery() != null && StringUtils.isNotBlank(getFeedRequest.getSearchQuery())) {
             timerString = "get-feed-head-with-cats-%s";
         }
         final Timer timer = Metrics.newTimer(getClass(), String.format(timerString, pageSize), TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
@@ -258,7 +258,7 @@ public class PostgresFeedSource implements FeedSource {
     private AdapterResponse<Feed> getFeedPage(GetFeedRequest getFeedRequest, String marker, int pageSize) {
 
         String timerString = "get-feed-page-%s";
-        if (getFeedRequest.getSearchQuery() != null) {
+        if (getFeedRequest.getSearchQuery() != null && StringUtils.isNotBlank(getFeedRequest.getSearchQuery())) {
             timerString = "get-feed-page-with-cats-%s";
         }
         final Timer timer = Metrics.newTimer(getClass(), String.format(timerString, pageSize), TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
