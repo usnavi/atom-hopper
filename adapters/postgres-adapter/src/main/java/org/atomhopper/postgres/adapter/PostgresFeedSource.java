@@ -100,8 +100,6 @@ public class PostgresFeedSource implements FeedSource {
 
     private Feed hydrateFeed(Abdera abdera, List<PersistedEntry> persistedEntries,
                              GetFeedRequest getFeedRequest, final int pageSize) {
-        final Timer timer = Metrics.newTimer(getClass(), String.format("hydrate-feed-%s", pageSize), TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
-        final TimerContext context = timer.time();
 
         final Feed hyrdatedFeed = abdera.newFeed();
         final String uuidUriScheme = "urn:uuid:";
@@ -145,15 +143,11 @@ public class PostgresFeedSource implements FeedSource {
         for (PersistedEntry persistedFeedEntry : persistedEntries) {
             hyrdatedFeed.addEntry(hydrateEntry(persistedFeedEntry, abdera));
         }
-        context.stop();
 
         return hyrdatedFeed;
     }
 
     private Entry hydrateEntry(PersistedEntry persistedEntry, Abdera abderaReference) {
-        final Timer timer = Metrics.newTimer(getClass(), "hydrate-entry", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
-        final TimerContext context = timer.time();
-
         final Document<Entry> hydratedEntryDocument = abderaReference.getParser().parse(
                 new StringReader(persistedEntry.getEntryBody()));
 
@@ -164,15 +158,12 @@ public class PostgresFeedSource implements FeedSource {
             entry.setUpdated(persistedEntry.getDateLastUpdated());
             entry.setPublished(persistedEntry.getCreationDate());
         }
-        context.stop();
 
         return entry;
     }
 
     @Override
     public AdapterResponse<Entry> getEntry(GetEntryRequest getEntryRequest) {
-        final Timer timer = Metrics.newTimer(getClass(), "get-entry", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
-        final TimerContext context = timer.time();
 
         final PersistedEntry entry = getEntry(getEntryRequest.getEntryId(), getEntryRequest.getFeedName());
 
@@ -181,8 +172,6 @@ public class PostgresFeedSource implements FeedSource {
         if (entry != null) {
             response = ResponseBuilder.found(hydrateEntry(entry, getEntryRequest.getAbdera()));
         }
-
-        context.stop();
 
         return response;
     }
@@ -328,6 +317,7 @@ public class PostgresFeedSource implements FeedSource {
                             .query(forwardSQL,
                                    new Object[]{feedName, markerEntry.getCreationDate(), pageSize},
                                    new EntryRowMapper());
+                    context.stop();
                 }
                 Collections.reverse(feedPage);
                 break;
@@ -361,13 +351,10 @@ public class PostgresFeedSource implements FeedSource {
     }
 
     private PersistedEntry getEntry(final String entryId, final String feedName) {
-        final Timer timer = Metrics.newTimer(getClass(), "db-get-entry", TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
-        final TimerContext context = timer.time();
 
         final String entrySQL = "SELECT * FROM entries WHERE feed = ? AND entryid = ?";
         List<PersistedEntry> entry = jdbcTemplate
                 .query(entrySQL, new Object[]{feedName, entryId}, new EntryRowMapper());
-        context.stop();
         return entry.size() > 0 ? entry.get(0) : null;
     }
 
@@ -429,16 +416,11 @@ public class PostgresFeedSource implements FeedSource {
 
         List<PersistedEntry> lastPersistedEntries;
         if (searchString.length() > 0) {
-            final Timer timer = Metrics.newTimer(getClass(), String.format("db-get-last-page-with-cats-%s", pageSize), TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
-            final TimerContext context = timer.time();
             lastPersistedEntries = jdbcTemplate
                     .query(lastLinkQueryWithCatsSQL, new Object[]{feedName,
                             CategoryStringGenerator.getPostgresCategoryString(searchString), pageSize},
                            new EntryRowMapper());
-            context.stop();
         } else {
-            final Timer timer = Metrics.newTimer(getClass(), String.format("db-get-last-page-%s", pageSize), TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
-            final TimerContext context = timer.time();
             lastPersistedEntries = jdbcTemplate
                     .query(lastLinkQuerySQL, new Object[]{feedName, pageSize},
                            new EntryRowMapper());
