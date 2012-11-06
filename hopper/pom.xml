@@ -16,6 +16,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.atomnuke.support</groupId>
+            <artifactId>configuration-support</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.atomhopper</groupId>
             <artifactId>test-util</artifactId>
         </dependency>

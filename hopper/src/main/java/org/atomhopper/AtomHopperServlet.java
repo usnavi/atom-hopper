@@ -1,5 +1,7 @@
 package org.atomhopper;
 
+import com.rackspace.papi.commons.util.thread.Poller;
+import com.rackspace.papi.commons.util.thread.RecurringTask;
 import org.apache.abdera.Abdera;
 import org.apache.abdera.ext.json.JSONFilter;
 import org.apache.abdera.protocol.server.Provider;
@@ -22,6 +24,15 @@ import org.atomhopper.util.config.ConfigurationParserException;
 import org.atomhopper.util.config.jaxb.JAXBConfigurationParser;
 import org.atomhopper.util.config.resource.file.FileConfigurationResource;
 import org.atomhopper.util.config.resource.uri.URIConfigurationResource;
+import org.atomnuke.plugin.InstanceContext;
+import org.atomnuke.service.gc.ReclamationHandler;
+import org.atomnuke.util.config.io.ConfigurationManager;
+import org.atomnuke.util.config.update.ConfigurationContext;
+import org.atomnuke.util.config.update.ConfigurationUpdateManager;
+import org.atomnuke.util.config.update.ConfigurationUpdateManagerImpl;
+import org.atomnuke.util.lifecycle.Reclaimable;
+import org.atomnuke.util.remote.AtomicCancellationRemote;
+import org.atomnuke.util.remote.CancellationRemote;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,13 +61,54 @@ public final class AtomHopperServlet extends AbderaServlet {
     private Abdera abderaReference;
     private Configuration configuration;
 
+    private ConfigurationUpdateManager updateManager;
+    private Poller configPoller;
+
     public AtomHopperServlet() {
         //TODO: One day I'm going to integrate Power API's configuration framework into this but until this, this'll do
         configurationParser = new JAXBConfigurationParser<Configuration>(Configuration.class, org.atomhopper.config.v1_0.ObjectFactory.class);
     }
 
     @Override
+    public void destroy() {
+        configPoller.destroy();
+        updateManager.destroy();
+    }
+
+    @Override
     public void init() throws ServletException {
+        updateManager = new ConfigurationUpdateManagerImpl(new ReclamationHandler() {
+            @Override
+            public void garbageCollect() {
+                //To change body of implemented methods use File | Settings | File Templates.
+            }
+
+            @Override
+            public CancellationRemote watch(Reclaimable reclaimable) {
+                return new AtomicCancellationRemote();
+            }
+
+            @Override
+            public CancellationRemote watch(InstanceContext<? extends Reclaimable> instanceContext) {
+                return new AtomicCancellationRemote();
+            }
+
+            @Override
+            public void destroy() {
+                //To change body of implemented methods use File | Settings | File Templates.
+            }
+        });
+
+        final RecurringTask task = new RecurringTask() {
+            @Override
+            public void run() {
+                updateManager.update();
+            }
+        };
+
+        configPoller = new Poller(task, 15000);
+        Thread configThread = new Thread(configPoller, "Configuration Poller Thread");
+
         abderaReference = getAbdera();
 
         final String configLocation = getConfigurationLocation();
