@@ -10,6 +10,8 @@ import org.apache.commons.lang.StringUtils;
 import org.atomhopper.abdera.WorkspaceProvider;
 import org.atomhopper.config.AtomHopperConfigurationPreprocessor;
 import org.atomhopper.config.WorkspaceConfigProcessor;
+import org.atomhopper.config.org.atomhopper.config.v2.AtomHopperConfigMarshaller;
+import org.atomhopper.config.org.atomhopper.config.v2.AtomHopperConfigurationReader;
 import org.atomhopper.config.v1_0.Configuration;
 import org.atomhopper.config.v1_0.ConfigurationDefaults;
 import org.atomhopper.config.v1_0.HostConfiguration;
@@ -26,10 +28,14 @@ import org.atomhopper.util.config.resource.file.FileConfigurationResource;
 import org.atomhopper.util.config.resource.uri.URIConfigurationResource;
 import org.atomnuke.plugin.InstanceContext;
 import org.atomnuke.service.gc.ReclamationHandler;
+import org.atomnuke.util.config.ConfigurationException;
 import org.atomnuke.util.config.io.ConfigurationManager;
+import org.atomnuke.util.config.io.ConfigurationManagerImpl;
+import org.atomnuke.util.config.io.file.FileConfigurationManager;
 import org.atomnuke.util.config.update.ConfigurationContext;
 import org.atomnuke.util.config.update.ConfigurationUpdateManager;
 import org.atomnuke.util.config.update.ConfigurationUpdateManagerImpl;
+import org.atomnuke.util.config.update.listener.ConfigurationListener;
 import org.atomnuke.util.lifecycle.Reclaimable;
 import org.atomnuke.util.remote.AtomicCancellationRemote;
 import org.atomnuke.util.remote.CancellationRemote;
@@ -37,6 +43,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.ServletException;
+import javax.xml.bind.JAXBException;
+import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -56,17 +64,16 @@ public final class AtomHopperServlet extends AbderaServlet {
 
     private static final String DEFAULT_CONFIGURATION_LOCATION = "/etc/atomhopper/atom-server.cfg.xml";
 
-    private final ConfigurationParser<Configuration> configurationParser;
     private ApplicationContextAdapter applicationContextAdapter;
     private Abdera abderaReference;
-    private Configuration configuration;
 
     private ConfigurationUpdateManager updateManager;
     private Poller configPoller;
 
+    private final WorkspaceProvider workspaceProvider;
+
     public AtomHopperServlet() {
-        //TODO: One day I'm going to integrate Power API's configuration framework into this but until this, this'll do
-        configurationParser = new JAXBConfigurationParser<Configuration>(Configuration.class, org.atomhopper.config.v1_0.ObjectFactory.class);
+        workspaceProvider = new WorkspaceProvider();
     }
 
     @Override
@@ -77,10 +84,14 @@ public final class AtomHopperServlet extends AbderaServlet {
 
     @Override
     public void init() throws ServletException {
+
+        applicationContextAdapter = getContextAdapter();
+        applicationContextAdapter.usingServletContext(getServletContext());
+
         updateManager = new ConfigurationUpdateManagerImpl(new ReclamationHandler() {
             @Override
             public void garbageCollect() {
-                //To change body of implemented methods use File | Settings | File Templates.
+                //Noop
             }
 
             @Override
@@ -95,7 +106,7 @@ public final class AtomHopperServlet extends AbderaServlet {
 
             @Override
             public void destroy() {
-                //To change body of implemented methods use File | Settings | File Templates.
+                //Noop
             }
         });
 
@@ -109,27 +120,48 @@ public final class AtomHopperServlet extends AbderaServlet {
         configPoller = new Poller(task, 15000);
         Thread configThread = new Thread(configPoller, "Configuration Poller Thread");
 
-        abderaReference = getAbdera();
-
+        configThread.start();
         final String configLocation = getConfigurationLocation();
         LOG.info("Reading configuration: " + configLocation);
 
+        abderaReference = getAbdera();
+
         try {
-            try {
-                configurationParser.setConfigurationResource(new URIConfigurationResource(new URI(configLocation)));
-            } catch (URISyntaxException ex) {
-                configurationParser.setConfigurationResource(new FileConfigurationResource(configLocation));
-            }
+            AtomHopperConfigMarshaller marshaller = new AtomHopperConfigMarshaller();
+            AtomHopperConfigurationReader<Configuration> configReader = new AtomHopperConfigurationReader<Configuration>(new URIConfigurationResource(new URI(configLocation)));
+            ConfigurationManager<Configuration> configMgr = new ConfigurationManagerImpl<Configuration>(marshaller, null, configReader);
 
-            configuration = configurationParser.read();
-        } catch (ConfigurationParserException cpe) {
-            LOG.error("Failed to read configuration file: " + configLocation, cpe);
+            ConfigurationContext<Configuration> cfgCtx = updateManager.register("org.atomhopper.cfg.Instance", configMgr);
 
-            throw new ServletInitException(cpe.getMessage(), cpe);
+            cfgCtx.addListener(new ConfigurationListener<Configuration>() {
+                @Override
+                public void updated(Configuration configuration) throws ConfigurationException {
+                    workspaceProvider.setHostConfiguration(configuration.getHost());
+                    final String atomhopperUrlPattern = (getServletConfig().getInitParameter("atomhopper-url-pattern") == null) ?
+                            "/" : getServletConfig().getInitParameter("atomhopper-url-pattern");
+
+                    workspaceProvider.init(abderaReference, parseDefaults(configuration.getDefaults()));
+
+                    final AtomHopperConfigurationPreprocessor preprocessor = new AtomHopperConfigurationPreprocessor(configuration);
+                    configuration = preprocessor.applyDefaults().getConfiguration();
+
+                    ConfigurationDefaults configurationDefaults = configuration.getDefaults();
+                    workspaceProvider.init(abderaReference, parseDefaults(configurationDefaults));
+
+                    for (WorkspaceConfiguration workspaceCfg : configuration.getWorkspace()) {
+                        final WorkspaceConfigProcessor cfgProcessor = new WorkspaceConfigProcessor(
+                                workspaceCfg, applicationContextAdapter,
+                                workspaceProvider.getTargetResolver(), atomhopperUrlPattern);
+
+                        workspaceProvider.getWorkspaceManager().addWorkspaces(cfgProcessor.toHandler());
+                    }
+
+                }
+            });
+        } catch (Exception jaxbe) {
+            LOG.error("Failed to read configuration");
+            throw new ServletInitException(jaxbe.getMessage(), jaxbe);
         }
-
-        applicationContextAdapter = getContextAdapter();
-        applicationContextAdapter.usingServletContext(getServletContext());
 
         super.init();
     }
@@ -165,40 +197,7 @@ public final class AtomHopperServlet extends AbderaServlet {
 
     @Override
     protected Provider createProvider() {
-        final WorkspaceProvider workspaceProvider = new WorkspaceProvider(getHostConfiguration());
-        final String atomhopperUrlPattern = (getServletConfig().getInitParameter("atomhopper-url-pattern") == null) ?
-                "/" : getServletConfig().getInitParameter("atomhopper-url-pattern"); 
-        
-        workspaceProvider.init(abderaReference, parseDefaults(configuration.getDefaults()));
-
-        final AtomHopperConfigurationPreprocessor preprocessor = new AtomHopperConfigurationPreprocessor(configuration);
-        configuration = preprocessor.applyDefaults().getConfiguration();
-
-        ConfigurationDefaults configurationDefaults = configuration.getDefaults();
-        workspaceProvider.init(abderaReference, parseDefaults(configurationDefaults));
-
-        for (WorkspaceConfiguration workspaceCfg : configuration.getWorkspace()) {
-            final WorkspaceConfigProcessor cfgProcessor = new WorkspaceConfigProcessor(
-                    workspaceCfg, applicationContextAdapter,
-                    workspaceProvider.getTargetResolver(), atomhopperUrlPattern);
-
-            workspaceProvider.getWorkspaceManager().addWorkspaces(cfgProcessor.toHandler());
-        }
-
-        workspaceProvider.addFilter(new JSONFilter());
-
         return workspaceProvider;
-    }
-
-    private HostConfiguration getHostConfiguration() {
-        //Initial parsing validation rules specify that there must always be a host configuration
-        final HostConfiguration hostConfiguration = configuration.getHost();
-
-        if (StringUtils.isBlank(hostConfiguration.getDomain())) {
-            throw new ConfigurationParserException("No domain specified in the host configuration. This is required for link generation. Halting.");
-        }
-
-        return hostConfiguration;
     }
 
     private Map<String, String> parseDefaults(ConfigurationDefaults defaults) {

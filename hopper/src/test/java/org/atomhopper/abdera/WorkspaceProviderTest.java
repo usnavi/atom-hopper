@@ -186,7 +186,7 @@ public class WorkspaceProviderTest {
         final WorkspaceManager workspaceManagerMock = mock(WorkspaceManager.class);
 
         private TestableWorkspaceProvider() {
-            super(new HostConfiguration());
+            super();
         }
 
         @Override

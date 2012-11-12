@@ -29,18 +29,24 @@ public class WorkspaceProvider implements Provider {
     private final List<Filter> filters;
     private final WorkspaceManager workspaceManager;
     private final RegexTargetResolver targetResolver;
-    private final HostConfiguration hostConfiguration;
+    private HostConfiguration hostConfiguration;
     private final TemplateTargetBuilder templateTargetBuilder;
     private Map<String, String> properties;
     private Abdera abdera;
 
-    public WorkspaceProvider(HostConfiguration hostConfiguration) {
+    public HostConfiguration getHostConfiguration() {
+        return hostConfiguration;
+    }
+
+    public void setHostConfiguration(HostConfiguration hostConfig) {
+        this.hostConfiguration = hostConfig;
+    }
+
+    public WorkspaceProvider() {
         requestProcessors = new HashMap<TargetType, RequestProcessor>();
         filters = new LinkedList<Filter>();
         targetResolver = new RegexTargetResolver();
 
-        // Set the host configuration
-        this.hostConfiguration = hostConfiguration;
 
         // Setting default request processors:
         requestProcessors.put(TargetType.TYPE_SERVICE, new ServiceRequestProcessor());
