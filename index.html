@@ -1,0 +1,124 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"
+   "http://www.w3.org/TR/html4/strict.dtd">
+
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Atom Hopper</title>
+
+    <!-- Blueprint CSS -->
+    <link rel="stylesheet" href="blueprint/screen.css" type="text/css" media="screen, projection">
+    <link rel="stylesheet" href="blueprint/print.css" type="text/css" media="print">
+    <!--[if lt IE 8]><link rel="stylesheet" href="blueprint/ie.css" type="text/css" media="screen, projection"><![endif]-->
+    <link href='http://fonts.googleapis.com/css?family=Questrial' rel='stylesheet' type='text/css'>
+    
+    <style type="text/css">
+		a:link { 
+			text-decoration: none; 
+			color: #007700;
+			}
+		a:visited { 
+			text-decoration: none; 
+			color: #007700;
+			}
+		a:hover, a:active { 
+			text-decoration: underline; 
+			color: #00BB00;
+			}
+		body {
+			font-family: 'Questrial', sans-serif;
+			font-size: 12pt;
+			}
+		.box {
+			text-align: center;
+			font-weight: bold;
+			border: solid 1px #98BE10;
+			background: #F6FEDA;
+			padding: 0px 10px 0px 10px;
+			height: 650px;
+			}		
+    </style>
+    
+	<script type="text/javascript">
+	
+	  var _gaq = _gaq || [];
+	  _gaq.push(['_setAccount', 'UA-9826649-6']);
+	  _gaq.push(['_trackPageview']);
+	
+	  (function() {
+		var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+		ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+		var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+	  })();
+	</script>
+    
+  </head>
+  <body>
+  	  <a href="https://github.com/rackerlabs/atom-hopper"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_left_green_007200.png" alt="Fork me on GitHub"></a>
+	  <div class="container">
+	
+		<div class="span-10 prepend-top">
+			<div style="text-align: center; height: 380px;">
+				<img width="310px;" src="img/ahlogo.png" />
+			</div>
+		</div>
+		<div class="span-14 prepend-top last">
+			<div class="box" style="text-align: left; height: 380px;">
+			   <h4 style="margin-top: 6px;">Atom Hopper is an open source ATOMPub server (using <a href="http://abdera.apache.org">Apache Abdera</a> and licensed under <a href="http://www.apache.org/licenses/LICENSE-2.0.html">Apache License v2.0</a> with the source code 
+			   <a href="https://github.com/rackspace/atom-hopper">available on GitHub</a>) for accessing, processing and aggregating ATOM entries. Atom Hopper was designed to make it easy to build both 
+			   generalized and specialized persistence mechanisms for ATOM XML data, based on the <a href="http://www.ietf.org/rfc/rfc4287.txt">ATOM Syndication Format</a> and the <a href="http://tools.ietf.org/html/rfc5023">ATOM Publishing 
+			   Protocol</a>.<br /><br />
+			   <ul>
+				   <li>The ATOM Syndication Format is used to describe lists of timestamped entries in XML. These lists are referred to as feeds.</li>
+				   <li>The ATOM Publishing Protocol (ATOMPub or APP) is a simple HTTP-based protocol for creating and updating web resources.</li>
+			   </ul>
+			   </h4>
+			</div>
+		</div>
+		
+		<div class="span-10 append-bottom">
+			<div class="box">
+				<h3 style="margin-top: 6px">Features</h3>
+				<div style="text-align: left; font-weight: normal;">
+					<h4>
+						<ul>
+							<li><strong>Accessing.</strong> Anyone can publish ATOM entries or subscribe to one or more ATOM feeds</li>
+							<li><strong>Processing.</strong> Category searches, JSON or ATOM XML results</li>
+							<li><strong>Aggregating.</strong> ATOM entries are aggregated into ATOM feeds and persisted in a data store</li>
+						</ul>
+					</h4>
+				</div>
+				<h3 style="margin-top: 6px">External Links</h3>
+				<div style="text-align: left; font-weight: normal;">
+					<h4>
+<ul><li>Atom Hopper in production at <a href="http://www.rackspace.com/blog/rackspace-open-sources-atom-hopper-an-atom-publishing-server/">Rackspace</a> to support <a href="http://openstack.org">OpenStack</a></li>
+						<li><a href="https://github.com/rackerlabs/atom-hopper/wiki">Atom Hopper Wiki</a></li>
+						<li><a href="http://www.giantflyingsaucer.com/blog/?cat=53">Atom Hopper Blog Articles</a></li>
+						<li><a href="http://maven.research.rackspacecloud.com/content/repositories/releases/org/atomhopper/atomhopper/">Download Atom Hopper Releases (Stable)</a></li></ul>
+						<p style="text-align: center;"><a href="https://twitter.com/atomhopper"><img width="100px" height="20px" src="img/full_logo_blue.png" title="Follow us on Twitter"/></a></p>
+						<p>If you also require: Authentication and Authorization, Rate Limiting, Versioning or HTTP Logging please note that Atom Hopper works well with <a href="http://openrepose.org/">Repose</a></p>
+					</h4>
+				</div>				
+			</div>
+		</div>
+		<div class="span-14 append-bottom last">
+			<div class="box">
+				<h3 style="margin-top: 6px">Benefits</h3>
+				<div style="text-align: left; font-weight: normal;">
+					<h4>
+						<ul>
+							<li><strong>Simple.</strong> Atom Hopper is easy to use. It can be deployed as a single WAR file into any Servlet container. Most applications can use Atom Hopper with minimal configuration to specify the Atom Workspaces and the Content storage.</li>
+							<li><strong>Scalable.</strong> Atom Hopper is very scalable because it is designed to be stateless, allowing state to be distributed across the web.</li>
+							<li><strong>Layered.</strong> Atom Hopper allows any number of intermediaries, such as proxies, gateways, and firewalls so one can easily layer aspects such as Security, Compression, etc. on an as needed basis.</li>
+							<li><strong>Built on a strong foundation.</strong> It is built on top of several open source projects such as Apache Abdera (a Java-based Atom Publishing framework), Hibernate, and MongoDB.</li>
+							<li><strong>Flexible.</strong> Atom Hopper currently supports the following relational databases: H2, PostgresSQL, and MySQL (plus others that work with Hibernate) as well as the NoSQL solution MongoDB</li>
+							<li><strong>High performance.</strong> Atom Hopper can handle high loads with high accuracy.</li>
+							<li><strong>Improving.</strong> Atom Hopper is under active development.</li>
+						</ul>
+					</h4>
+				</div>
+			</div>
+		</div>		
+	  </div>
+  </body>
+</html>
