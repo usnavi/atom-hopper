@@ -1,0 +1,26 @@
+
+This is an example of how we might use spock to enumerate our specifications & QE tests.
+
+This is just a start, so please provide feedback in how this can be better constructed.
+
+To start you off, take a look at the following files:
+
+pom.xml - contains the profiles & necessary inputs for running against our atomhopper servers in
+          staging (stage-env) and test (test-env).
+
+src/test/groovy/tests/RunTest - contains the sample test cases: a test which can get an arbitrary feed
+                                and a test which posts to an arbitrary feed.
+
+src/test/groovy/framework/AtomHopperTest - Base test class which extends spock's Specification class.
+                                           Contains helper methods which get necessary auth token and makes
+                                           http requests to the atomhopper server.
+
+To run the tests:
+
+cd to atom-hopper/spock
+> mvn -P test-env clean test
+
+If you get any SSL errors, you might need to import the SSL certificates into the cacerts of your JVM.  Shinta
+wrote up instructions for this at:
+
+https://one.rackspace.com/display/CIB/How+to+add+Server+SSL+Certificate+to+JVM

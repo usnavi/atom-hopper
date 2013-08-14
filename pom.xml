@@ -332,6 +332,17 @@
         </dependencies>
     </dependencyManagement>
 
+    <profiles>
+
+        <profile>
+            <id>spock-sample</id>
+            <modules>
+                <module>spock</module>
+            </modules>
+        </profile>
+    </profiles>
+
+
     <repositories>
         <repository>
             <id>public.maven.research.rackspace.com</id>
