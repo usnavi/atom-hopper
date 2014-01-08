@@ -29,7 +29,9 @@ import static org.mockito.Mockito.when;
 
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementSetter;
 
 @RunWith(Enclosed.class)
 public class JdbcFeedPublisherTest {
@@ -85,6 +87,7 @@ public class JdbcFeedPublisherTest {
                     anyString(), any(java.util.Date.class), any(java.util.Date.class),
                     anyString(), anyString(), any(PostgreSQLTextArray.class)
             })).thenThrow(new DuplicateKeyException("duplicate entry"));
+            when(jdbcTemplate.batchUpdate(  anyString(), any( BatchPreparedStatementSetter.class)) ).thenThrow(  new DuplicateKeyException( "duplicate entry" ) );
             AdapterResponse<Entry> adapterResponse = jdbcFeedPublisher.postEntry(postEntryRequest);
             assertEquals("Should return HTTP 409 (Conflict)", HttpStatus.CONFLICT, adapterResponse.getResponseStatus());
         }

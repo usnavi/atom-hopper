@@ -35,6 +35,9 @@ import static org.apache.abdera.i18n.text.UrlEncoding.decode;
 
 public class JdbcFeedPublisher implements FeedPublisher {
 
+    public static final String INSERT_SQL = "INSERT INTO entries (entryid, entrybody, feed, categories) VALUES (?, ?, ?, ?)";
+    public static final String DATE_OVERRIDE_SQL = "INSERT INTO entries (entryid, creationdate, datelastupdated, entrybody, feed, categories) VALUES (?, ?, ?, ?, ?, ?)";;
+
     private static final Logger LOG = LoggerFactory.getLogger(JdbcFeedPublisher.class);
     private static final String UUID_URI_SCHEME = "urn:uuid:";
     private static final String LINKREL_SELF = "self";
@@ -44,11 +47,28 @@ public class JdbcFeedPublisher implements FeedPublisher {
     private boolean allowOverrideDate = false;
     private boolean enableTimers = false;
 
+    private String insertSQL = INSERT_SQL;
+
+    private JdbcInserter inserter;
+
     private Map<String, Counter> counterMap = Collections.synchronizedMap(new HashMap<String, Counter>());
 
     public void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+
+        if( inserter != null )
+            inserter.setJdbcTemplate( jdbcTemplate );
     }
+
+   public void setJdbcInserter( JdbcInserter i ) {
+
+       inserter = i;
+
+       if( jdbcTemplate != null )
+           inserter.setJdbcTemplate( jdbcTemplate );
+
+       inserter.setAllowOverrideDate( allowOverrideDate );
+   }
 
     public void setAllowOverrideId(boolean allowOverrideId) {
         this.allowOverrideId = allowOverrideId;
@@ -56,6 +76,11 @@ public class JdbcFeedPublisher implements FeedPublisher {
 
     public void setAllowOverrideDate(boolean allowOverrideDate) {
         this.allowOverrideDate = allowOverrideDate;
+
+        insertSQL = DATE_OVERRIDE_SQL;
+
+        if( inserter != null )
+            inserter.setAllowOverrideDate( allowOverrideDate );
     }
 
     public void setEnableTimers(Boolean enableTimers) {
@@ -76,13 +101,6 @@ public class JdbcFeedPublisher implements FeedPublisher {
         try {
             final Entry abderaParsedEntry = postEntryRequest.getEntry();
             final PersistedEntry persistedEntry = new PersistedEntry();
-
-            // D-15000: use auto generated DB timestamp, except for when allowOverrideDate
-            // is set to true
-            String insertSQL = "INSERT INTO entries (entryid, entrybody, feed, categories) VALUES (?, ?, ?, ?)";
-            if ( allowOverrideDate ) {
-                insertSQL = "INSERT INTO entries (entryid, creationdate, datelastupdated, entrybody, feed, categories) VALUES (?, ?, ?, ?, ?, ?)";
-            }
 
             boolean entryIdSent = abderaParsedEntry.getId() != null;
             if (allowOverrideId && entryIdSent && StringUtils.isNotBlank(abderaParsedEntry.getId().toString().trim())) {
@@ -116,30 +134,56 @@ public class JdbcFeedPublisher implements FeedPublisher {
             abderaParsedEntry.setPublished(persistedEntry.getCreationDate());
 
             final TimerContext dbcontext = startTimer("db-post-entry");
-            try {
-                Object[] params = null;
-                if ( allowOverrideDate ) {
-                    // we have extra date parameters
-                    params = new Object[]{
-                        persistedEntry.getEntryId(), persistedEntry.getCreationDate(), persistedEntry.getDateLastUpdated(),
-                            persistedEntry.getEntryBody(), persistedEntry.getFeed(), new PostgreSQLTextArray(persistedEntry.getCategories())
+
+            if ( inserter == null ) {
+
+                try {
+                    Object[] params = null;
+                    if ( allowOverrideDate ) {
+                        // we have extra date parameters
+                        params = new Object[]{
+                              persistedEntry.getEntryId(), persistedEntry.getCreationDate(), persistedEntry.getDateLastUpdated(),
+                              persistedEntry.getEntryBody(), persistedEntry.getFeed(), new PostgreSQLTextArray(persistedEntry.getCategories())
                         };
-                } else {
-                    params = new Object[]{
-                            persistedEntry.getEntryId(), persistedEntry.getEntryBody(), persistedEntry.getFeed(),
-                            new PostgreSQLTextArray(persistedEntry.getCategories())
-                    };
+                    } else {
+                        params = new Object[]{
+                              persistedEntry.getEntryId(), persistedEntry.getEntryBody(), persistedEntry.getFeed(),
+                              new PostgreSQLTextArray(persistedEntry.getCategories())
+                        };
+                    }
+                    jdbcTemplate.update( insertSQL, params);
+                } catch (DuplicateKeyException dupEx) {
+                    String errMsg = String.format("Unable to persist entry. Reason: entryId (%s) not unique.", abderaParsedEntry.getId().toString());
+                    return ResponseBuilder.conflict(errMsg);
+                }  finally {
+                    stopTimer(dbcontext);
                 }
-                jdbcTemplate.update(insertSQL, params);
-            } catch (DuplicateKeyException dupEx) {
-                String errMsg = String.format("Unable to persist entry. Reason: entryId (%s) not unique.", abderaParsedEntry.getId().toString());
-                return ResponseBuilder.conflict(errMsg);
-            }  finally {
-                stopTimer(dbcontext);
+            }
+            else {
+
+                try {
+
+                    JdbcInserter.Result result = inserter.insert( persistedEntry );
+                    result.waitFor();
+
+                } catch (Exception ex) {
+
+                    String errMsg = ex.getMessage();
+
+                    if( ex instanceof DuplicateKeyException ) {
+                        errMsg = String.format("Unable to persist entry. Reason: entryId (%s) not unique.", abderaParsedEntry.getId().toString());
+                    }
+
+                    return ResponseBuilder.conflict( errMsg );
+                }
+                finally {
+                    stopTimer(dbcontext);
+                }
             }
 
             incrementCounterForFeed(postEntryRequest.getFeedName());
             return ResponseBuilder.created(abderaParsedEntry);
+
         } finally {
             stopTimer(context);
         }
