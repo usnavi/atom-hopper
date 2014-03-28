@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.atomhopper</groupId>
         <artifactId>parent</artifactId>
-        <version>1.2.19-SNAPSHOT</version>
+        <version>1.2.21-SNAPSHOT</version>
         <relativePath>./../../pom.xml</relativePath>
     </parent>
 
@@ -84,6 +84,11 @@
         <dependency>
             <groupId>com.unboundid</groupId>
             <artifactId>unboundid-ldapsdk</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
         </dependency>
     </dependencies>
 </project>
