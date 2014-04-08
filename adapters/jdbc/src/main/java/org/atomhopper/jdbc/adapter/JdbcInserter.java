@@ -84,7 +84,9 @@ public class JdbcInserter implements Runnable {
     public void setAllowOverrideDate(boolean allowOverrideDate) {
 
         this.allowOverrideDate = allowOverrideDate;
-        insertSQL = JdbcFeedPublisher.DATE_OVERRIDE_SQL;
+
+        if ( allowOverrideDate )
+            insertSQL = JdbcFeedPublisher.DATE_OVERRIDE_SQL;
     }
 
 
