@@ -9,7 +9,7 @@ import org.joda.time.format.DateTimeFormatter;
 public class SqlBuilder {
     private String searchString;
     private SearchType type;
-    private int feedHeadDelayInSeconds = -1;
+    private long feedHeadDelayInMS = -1;
     private DateTime startingTimestamp;
 
     private static final String EQUALS = "=";
@@ -53,8 +53,8 @@ public class SqlBuilder {
         return this;
     }
 
-    public SqlBuilder feedHeadDelayInSeconds(int delay) {
-        this.feedHeadDelayInSeconds = delay;
+    public SqlBuilder feedHeadDelayInMS( long delay ) {
+        this.feedHeadDelayInMS = delay;
         return this;
     }
 
@@ -91,11 +91,11 @@ public class SqlBuilder {
                 // of multi-process and multi-threaded-ness of the database.
                 // Therefore, we return only entries that have been inserted
                 // in the database n seconds from the current select time.
-                if ( feedHeadDelayInSeconds != -1 ) {
+                if ( feedHeadDelayInMS != -1 ) {
                     builder.append(AND);
                     builder.append(" datelastupdated < now() - interval '");
-                    builder.append(feedHeadDelayInSeconds);
-                    builder.append(" seconds' ");
+                    builder.append( feedHeadDelayInMS );
+                    builder.append(" milliseconds' ");
                 }
 
                 builder.append(CLOSE_PARENS);
@@ -118,11 +118,11 @@ public class SqlBuilder {
                 // of multi-process and multi-threaded-ness of the database.
                 // Therefore, we return only entries that have been inserted
                 // in the database n seconds from the current select time.
-                if ( feedHeadDelayInSeconds != -1 ) {
+                if ( feedHeadDelayInMS != -1 ) {
                     builder.append(AND);
                     builder.append(" datelastupdated < now() - interval '");
-                    builder.append(feedHeadDelayInSeconds);
-                    builder.append(" seconds' ");
+                    builder.append( feedHeadDelayInMS );
+                    builder.append(" milliseconds' ");
                 }
 
                 builder.append(String.format(ORDER_BY_ASC));
@@ -180,11 +180,11 @@ public class SqlBuilder {
                 // of multi-process and multi-threaded-ness of the database.
                 // Therefore, we return only entries that have been inserted
                 // in the database n seconds from the current select time.
-                if ( feedHeadDelayInSeconds != -1 ) {
+                if ( feedHeadDelayInMS != -1 ) {
                     builder.append(AND);
                     builder.append(" datelastupdated < now() - interval '");
-                    builder.append(feedHeadDelayInSeconds);
-                    builder.append(" seconds' ");
+                    builder.append( feedHeadDelayInMS );
+                    builder.append(" milliseconds' ");
                 }
 
                 builder.append(String.format(ORDER_BY_DESC_LIMIT, QUESTION_MARK));
@@ -232,11 +232,11 @@ public class SqlBuilder {
                 builder.append(SELECT);
                 builder.append(" ");
 
-                if ( feedHeadDelayInSeconds != -1 ) {
+                if ( feedHeadDelayInMS != -1 ) {
                     builder.append(AND);
                     builder.append(" datelastupdated < now() - interval '");
-                    builder.append(feedHeadDelayInSeconds);
-                    builder.append(" seconds' ");
+                    builder.append( feedHeadDelayInMS );
+                    builder.append(" milliseconds' ");
                 }
 
                 DateTimeZone timeZone = startingTimestamp.getZone();
@@ -279,11 +279,11 @@ public class SqlBuilder {
                 // of multi-process and multi-threaded-ness of the database.
                 // Therefore, we return only entries that have been inserted
                 // in the database n seconds from the current select time.
-                if ( feedHeadDelayInSeconds != -1 ) {
+                if ( feedHeadDelayInMS != -1 ) {
                     builder.append(AND);
                     builder.append(" datelastupdated < now() - interval '");
-                    builder.append(feedHeadDelayInSeconds);
-                    builder.append(" seconds' ");
+                    builder.append( feedHeadDelayInMS );
+                    builder.append(" milliseconds' ");
                 }
 
                 builder.append(String.format(ORDER_BY_ASC));

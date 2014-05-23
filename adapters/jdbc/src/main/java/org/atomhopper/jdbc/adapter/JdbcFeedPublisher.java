@@ -3,7 +3,6 @@ package org.atomhopper.jdbc.adapter;
 import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.Counter;
 import com.yammer.metrics.core.TimerContext;
-import org.apache.abdera.model.Categories;
 import org.apache.abdera.model.Entry;
 import org.apache.commons.lang.StringUtils;
 import org.atomhopper.adapter.FeedPublisher;
@@ -13,6 +12,7 @@ import org.atomhopper.adapter.ResponseBuilder;
 import org.atomhopper.adapter.request.adapter.DeleteEntryRequest;
 import org.atomhopper.adapter.request.adapter.PostEntryRequest;
 import org.atomhopper.adapter.request.adapter.PutEntryRequest;
+import org.atomhopper.jdbc.delay.IdTime;
 import org.atomhopper.jdbc.model.PersistedEntry;
 import org.atomhopper.jdbc.query.PostgreSQLTextArray;
 import org.atomhopper.response.AdapterResponse;
@@ -30,6 +30,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.abdera.i18n.text.UrlEncoding.decode;
+import static org.atomhopper.jdbc.delay.FeedDelayHolder.FEED_DELAY;
 
 /**
  * Implements the FeedPublisher interface for writing to a postgres datastore and implements the following:
@@ -224,7 +225,13 @@ public class JdbcFeedPublisher implements FeedPublisher {
             abderaParsedEntry.setPublished(persistedEntry.getCreationDate());
 
             final TimerContext dbcontext = startTimer("db-post-entry");
+
+            IdTime eTime = new IdTime( persistedEntry.getEntryId() );
+
             try {
+
+                FEED_DELAY.add( persistedEntry.getFeed(), eTime );
+
                 if ( allowOverrideDate ) {
 
                     insertDbOverrideDate( persistedEntry );
@@ -238,7 +245,9 @@ public class JdbcFeedPublisher implements FeedPublisher {
                 String errMsg = String.format("Unable to persist entry. Reason: entryId (%s) not unique.", abderaParsedEntry.getId().toString());
                 return ResponseBuilder.conflict( errMsg );
             }  finally {
-                stopTimer(dbcontext);
+
+                FEED_DELAY.remove( persistedEntry.getFeed(), eTime );
+                stopTimer( dbcontext );
             }
 
             incrementCounterForFeed(postEntryRequest.getFeedName());
@@ -305,6 +314,7 @@ public class JdbcFeedPublisher implements FeedPublisher {
         if (enableTimers) {
             final com.yammer.metrics.core.Timer timer = Metrics.newTimer(getClass(), name, TimeUnit.MILLISECONDS, TimeUnit.SECONDS);
             TimerContext context = timer.time();
+
             return context;
         } else {
             return null;

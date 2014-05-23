@@ -12,6 +12,7 @@ import org.atomhopper.adapter.*;
 import org.atomhopper.adapter.request.adapter.GetEntryRequest;
 import org.atomhopper.adapter.request.adapter.GetFeedRequest;
 import org.atomhopper.dbal.PageDirection;
+import org.atomhopper.jdbc.delay.ClusterDelayMaster;
 import org.atomhopper.jdbc.model.PersistedEntry;
 import org.atomhopper.jdbc.query.SearchToSqlConverter;
 import org.atomhopper.jdbc.query.SearchType;
@@ -39,6 +40,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.abdera.i18n.text.UrlEncoding.decode;
+import static org.atomhopper.jdbc.delay.XXXClusterDelay.*;
 
 /**
  * Implements the FeedSource interface for retrieving feed entries from a datastore.  This class implements
@@ -80,7 +82,6 @@ public class JdbcFeedSource implements FeedSource {
     private JdbcTemplate jdbcTemplate;
     private boolean enableTimers = false;
     private boolean enableLoggingOnShortPage = false;
-    private int feedHeadDelayInSeconds = 2;
 
     private Map<String, String> mapPrefix = new HashMap<String, String>();
     private Map<String, String> mapColumn = new HashMap<String, String>();
@@ -138,7 +139,8 @@ public class JdbcFeedSource implements FeedSource {
     }
 
     public void setFeedHeadDelayInSeconds(int feedHeadDelayInSeconds) {
-        this.feedHeadDelayInSeconds = feedHeadDelayInSeconds;
+
+        // TODO:  remove
     }
 
     public void setPrefixColumnMap( Map<String, String> prefix ) {
@@ -220,14 +222,14 @@ public class JdbcFeedSource implements FeedSource {
                                                    long markerId,
                                                    String searchString,
                                                    int pageSize,
-                                                   int feedHeadDelayInSeconds) {
+                                                   long delayMS ) {
 
         List<String> categoriesList = getSearchToSqlConverter().getParamsFromSearchString( searchString );
 
         List<PersistedEntry> feedPage;
         Object[] parmsFor = createParams( feedName, markerTimestamp, markerId, pageSize, categoriesList );
         SqlBuilder sqlFor = new SqlBuilder( getSearchToSqlConverter() ).searchString(searchString);
-        sqlFor.searchType( SearchType.FEED_FORWARD).feedHeadDelayInSeconds( feedHeadDelayInSeconds );
+        sqlFor.searchType( SearchType.FEED_FORWARD).feedHeadDelayInMS( delayMS  );
         feedPage = getJdbcTemplate().query( sqlFor.toString(), parmsFor, getRowMapper() );
 
         return feedPage;
@@ -535,7 +537,7 @@ public class JdbcFeedSource implements FeedSource {
                                                markerId,
                                                searchString,
                                                pageSize,
-                                               feedHeadDelayInSeconds );
+                                               ClusterDelayMaster.getDelay( feedName ) );
 
                     Collections.reverse(feedPage);
                     break;
@@ -596,7 +598,7 @@ public class JdbcFeedSource implements FeedSource {
             }
 
             SqlBuilder sql = new SqlBuilder( getSearchToSqlConverter() ).searchType(SearchType.FEED_HEAD).searchString(searchString)
-                  .feedHeadDelayInSeconds(feedHeadDelayInSeconds);
+                  .feedHeadDelayInMS( ClusterDelayMaster.getDelay( feedName ) );
 
             return jdbcTemplate.query(sql.toString(), parms, getRowMapper() );
 
@@ -637,7 +639,7 @@ public class JdbcFeedSource implements FeedSource {
             }
 
             SqlBuilder sql = new SqlBuilder( getSearchToSqlConverter() ).searchType( SearchType.LAST_PAGE ).searchString( searchString )
-                  .feedHeadDelayInSeconds( feedHeadDelayInSeconds );
+                  .feedHeadDelayInMS( ClusterDelayMaster.getDelay( feedName ) );
 
             lastPersistedEntries = jdbcTemplate.query(sql.toString(), parms, getRowMapper());
 

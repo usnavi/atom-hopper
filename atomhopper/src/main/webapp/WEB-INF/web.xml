@@ -14,7 +14,14 @@
         -->
         <param-value>file:///etc/atomhopper/application-context.xml</param-value>
     </context-param>
-    
+
+    <!--
+       TODO:  this is jdbc adapter specific, should not hard-code this
+    -->
+    <listener>
+        <listener-class>org.atomhopper.jdbc.delay.WebappContextListener</listener-class>
+    </listener>
+
     <listener>
         <listener-class>org.atomhopper.ExternalConfigLoaderContextListener</listener-class>
     </listener>

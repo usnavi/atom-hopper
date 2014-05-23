@@ -16,6 +16,24 @@
     <name>ATOM Hopper - JDBC Adapter</name>
 
     <dependencies>
+
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-actor_2.10</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-cluster_2.10</artifactId>
+            <version>2.3.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-contrib_2.10</artifactId>
+            <version>2.3.2</version>
+        </dependency>
+
         <dependency>
             <groupId>org.atomhopper</groupId>
             <artifactId>core</artifactId>
